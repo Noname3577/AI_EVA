@@ -23,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" >
       <head>
         <link rel="icon" href="#" sizes="any" />
         <link rel="icon" href="#" type="image/png" />
@@ -31,6 +31,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        
       >
         {children}
       </body>

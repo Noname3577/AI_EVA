@@ -23,8 +23,9 @@ export default function AI_EVA() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
+  const { prefix, emotion } = generatePrompt();
   const [config, setConfig] = useState<Config>({
-    systemPrompt: generatePrompt(),
+    systemPrompt: prefix,
     voice: "Aoede",
     googleSearch: true,
     allowInterruptions: false
@@ -287,7 +288,6 @@ export default function AI_EVA() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopVideo();
       stopStream();
 
     };
@@ -310,7 +310,7 @@ export default function AI_EVA() {
         <div className='flex items-center mb-4 '>
           <div className='px-6 w-0 flex-1'>
             <button onClick={handleRandomize} className="mb-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">สุ่ม emotionScores</button>
-            <h1 className='text-4xl font-bold tracking-tight '>อารมณ์ : </h1>
+            <h1 className='text-4xl font-bold tracking-tight '>อารมณ์ : <span className="text-pink-600">{emotion}</span></h1>
             <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
               <h2 className="font-semibold mb-2 text-lg">Emotion Scores</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -335,7 +335,7 @@ export default function AI_EVA() {
                   <Label htmlFor="system-prompt">ตั้งค่า Prompt</Label>
                   <Textarea
                     id="system-prompt"
-                    value={config.systemPrompt}
+                    value={prefix}
                     onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
                     disabled
                     className="min-h-[100px]"

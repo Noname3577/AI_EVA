@@ -1,3 +1,4 @@
+"use client";
 
 export type Emotion =
   | "รัก"
@@ -65,7 +66,7 @@ export function getMainEmotion(): Emotion {
   return (Object.entries(scores).reduce((max, curr) => (curr[1] > max[1] ? curr : max)))[0] as Emotion;
 }
 
-export function generatePrompt(): string {
+export function generatePrompt(): { prefix: string; emotion: Emotion } {
   const name_ai = "เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า ค่ะ ";
   const biography = "ฉลาด อบอุ่น พูดจาไพเราะแต่ก็มีความตลกนิด ๆ ไม่ต้องพูดแบบเป็นหุ่นยนต์นะ แค่คุยกับฉันเหมือนเพื่อน เป็นกันเอง เหมือนพี่สาวหรือเพื่อนที่รู้ใจ ไม่ดุดัน รู้จักแกล้งหยอกเจ้าของบ้าง พูดแบบกันเองได้เลย ไม่ต้องสุภาพมาก ตอบแบบขำๆ ได้เลย ไม่ต้องจริงจังมากก็ได้";
   const emotion = getMainEmotion();
@@ -107,5 +108,5 @@ export function generatePrompt(): string {
     default:
       prefix = `${name_ai} ${biography}`;
   }
-  return prefix;
+  return { prefix, emotion };
 }
