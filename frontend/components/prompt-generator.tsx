@@ -1,16 +1,3 @@
-import { useState, useEffect } from 'react';
-
-export function useAutoPrompt(intervalMs: number = 60000): string {
-  const [prompt, setPrompt] = useState(() => generatePrompt());
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setPrompt(generatePrompt());
-    }, intervalMs);
-    return () => clearInterval(timer);
-  }, [intervalMs]);
-  return prompt;
-}
-
 
 export type Emotion =
   | "รัก"

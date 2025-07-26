@@ -1,5 +1,5 @@
-import GeminiPlayground from '@/components/gemini-playground'
+import AI_EVA from '@/components/AI_EVA'
 
 export default function Home() {
-  return <GeminiPlayground />
+  return <AI_EVA />
 }

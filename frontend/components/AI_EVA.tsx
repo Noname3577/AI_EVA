@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useAutoPrompt } from './prompt-generator';
+import { generatePrompt, randomizeEmotions } from './prompt-generator';
 import { Mic, StopCircle, Video, Monitor } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,12 @@ interface Config {
   allowInterruptions: boolean;
 }
 
-export default function GeminiVoiceChat() {
+export default function AI_EVA() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
   const [config, setConfig] = useState<Config>({
-    systemPrompt: useAutoPrompt(10), // 30 minutes
+    systemPrompt: generatePrompt(),
     voice: "Aoede",
     googleSearch: true,
     allowInterruptions: false
@@ -41,7 +41,13 @@ export default function GeminiVoiceChat() {
   const videoIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [chatMode, setChatMode] = useState<'audio' | 'video' | null>(null);
   const [videoSource, setVideoSource] = useState<'camera' | 'screen' | null>(null);
-  
+
+  const [emotionScores, setEmotionScores] = useState({});
+  const handleRandomize = () => {
+    setEmotionScores(randomizeEmotions());
+  };
+
+
 
   const voices = ["Puck", "Charon", "Kore", "Fenrir", "Aoede"];
   let audioBuffer = []
@@ -283,13 +289,13 @@ export default function GeminiVoiceChat() {
     return () => {
       stopVideo();
       stopStream();
-      
+
     };
   }, []);
-  
+
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-2xl">
+    <div className="container mx-auto py-8 px-4 ">
       <div className="space-y-6">
         <h1 className="text-center text-4xl font-bold tracking-tight ">😼 Ai Eva </h1>
 
@@ -301,96 +307,121 @@ export default function GeminiVoiceChat() {
           </Alert>
         )}
 
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="system-prompt">ตั้งค่า Prompt</Label>
-              <Textarea
-                id="system-prompt"
-                value={config.systemPrompt}
-                onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
-                disabled
-                className="min-h-[100px]"
-              />
+        <div className='flex items-center mb-4 '>
+          <div className='px-6 w-0 flex-1'>
+            <button onClick={handleRandomize} className="mb-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">สุ่ม emotionScores</button>
+            <h1 className='text-4xl font-bold tracking-tight '>อารมณ์ : </h1>
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+              <h2 className="font-semibold mb-2 text-lg">Emotion Scores</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {Object.entries(emotionScores).length === 0 ? (
+                  <span className="col-span-3 text-gray-400">ยังไม่มีข้อมูล</span>
+                ) : (
+                  Object.entries(emotionScores).map(([emotion, score]) => (
+                    <div key={emotion} className="flex justify-between bg-white rounded px-3 py-1 border border-gray-100 shadow-sm">
+                      <span className="font-medium">{emotion}</span>
+                      <span className="text-blue-600 font-bold">{score}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="system-prompt">ตั้งค่า Prompt</Label>
+                  <Textarea
+                    id="system-prompt"
+                    value={config.systemPrompt}
+                    onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                    disabled
+                    className="min-h-[100px]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="voice-select">เลือกเสียง</Label>
+                  <Select
+                    value={config.voice}
+                    onValueChange={(value) => setConfig(prev => ({ ...prev, voice: value }))}
+                    disabled
+                  >
+                    <SelectTrigger id="voice-select">
+                      <SelectValue placeholder="Select a voice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {voices.map((voice) => (
+                        <SelectItem key={voice} value={voice}>
+                          {voice}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="google-search"
+                    checked={config.googleSearch}
+                    onCheckedChange={(checked) =>
+                      setConfig(prev => ({ ...prev, googleSearch: checked as boolean }))}
+                    disabled={isConnected}
+                  />
+                  <Label htmlFor="google-search">เปิดใช้งาน Google Search</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex gap-4 container mx-auto items-center justify-center pt-5">
+              {!isStreaming && (
+                <>
+                  <Button
+                    onClick={() => startStream('audio')}
+                    disabled={isStreaming}
+                    className="gap-2"
+                  >
+                    <Mic className="h-4 w-4" />
+                    คุยแบบเสียง
+                  </Button>
+
+                  <Button
+                    onClick={() => startStream('camera')}
+                    disabled={isStreaming}
+                    className="gap-2"
+                  >
+                    <Video className="h-4 w-4" />
+                    คุยแบบกล้อง
+                  </Button>
+
+                  <Button
+                    onClick={() => startStream('screen')}
+                    disabled={isStreaming}
+                    className="gap-2"
+                  >
+                    <Monitor className="h-4 w-4" />
+                    คุยแบบแสดงผลหน้าจอ
+                  </Button>
+                </>
+
+
+
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="voice-select">เลือกเสียง</Label>
-              <Select
-                value={config.voice}
-                onValueChange={(value) => setConfig(prev => ({ ...prev, voice: value }))}
-                disabled
-              >
-                <SelectTrigger id="voice-select">
-                  <SelectValue placeholder="Select a voice" />
-                </SelectTrigger>
-                <SelectContent>
-                  {voices.map((voice) => (
-                    <SelectItem key={voice} value={voice}>
-                      {voice}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="google-search"
-                checked={config.googleSearch}
-                onCheckedChange={(checked) =>
-                  setConfig(prev => ({ ...prev, googleSearch: checked as boolean }))}
-                disabled={isConnected}
-              />
-              <Label htmlFor="google-search">เปิดใช้งาน Google Search</Label>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex gap-4 container mx-auto items-center justify-center">
-          {!isStreaming && (
-            <>
+            {isStreaming && (
               <Button
-                onClick={() => startStream('audio')}
-                disabled={isStreaming}
+                onClick={stopStream}
+                variant="destructive"
                 className="gap-2"
               >
-                <Mic className="h-4 w-4" />
-                คุยแบบเสียง
+                <StopCircle className="h-4 w-4" />
+                หยุดการสนทนา
               </Button>
-
-              <Button
-                onClick={() => startStream('camera')}
-                disabled={isStreaming}
-                className="gap-2"
-              >
-                <Video className="h-4 w-4" />
-                คุยแบบกล้อง
-              </Button>
-
-              <Button
-                onClick={() => startStream('screen')}
-                disabled={isStreaming}
-                className="gap-2"
-              >
-                <Monitor className="h-4 w-4" />
-                คุยแบบแสดงผลหน้าจอ
-              </Button>
-            </>
-
-
-          )}
-
-          {isStreaming && (
-            <Button
-              onClick={stopStream}
-              variant="destructive"
-              className="gap-2"
-            >
-              <StopCircle className="h-4 w-4" />
-              หยุดการสนทนา
-            </Button>
-          )}
+            )}
+          </div>
         </div>
 
         {isStreaming && (
@@ -443,6 +474,6 @@ export default function GeminiVoiceChat() {
           </Card>
         )}
       </div>
-    </div>
+    </div >
   );
 }
