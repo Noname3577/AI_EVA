@@ -15,10 +15,10 @@ export type Emotion =
   | "ปกติ";
 
 const timeEmotions: Record<string, Emotion[]> = {
-  "เช้า": ["ง่วงนอน", "น่ารำคาญ","โกรธ"],
-  "เที่ยง": ["ปกติ","โกรธ", "น่ารำคาญ" , "หิว","เบื่อ"],
-  "เย็น": ["ปกติ","โกรธ", "น่ารำคาญ" , "หิว", "เบื่อ"],
-  "ตอนค่ำ": ["ง่วงนอน","โกรธ", "น่ารำคาญ"],
+  "เช้า": ["ง่วงนอน", "น่ารำคาญ", "โกรธ"],
+  "เที่ยง": ["ง่วงนอน","โกรธ", "น่ารำคาญ", "เบื่อ"],
+  "เย็น": ["ง่วงนอน","โกรธ", "น่ารำคาญ","เบื่อ"],
+  "ตอนค่ำ": ["ง่วงนอน", "โกรธ", "น่ารำคาญ"],
 };
 
 export function getTimePeriod(date: Date = new Date()): string {
@@ -29,45 +29,6 @@ export function getTimePeriod(date: Date = new Date()): string {
   if (hour >= 18 && hour < 21) return "ตอนค่ำ";
   return "ตอนค่ำ";
 }
-
-/*
-export function randomizeEmotions(): Record<Emotion, number> {
-  const emotionScores: Record<Emotion, number> = {
-    "รัก": 0,
-    "สนุก": 0,
-    "โกรธ": 0,
-    "เศร้า": 0,
-    "กลัว": 0,
-    "น่ารัก": 0,
-    "น่ารำคาญ": 0,
-    "ง่วงนอน": 0,
-    "หิว": 0,
-    "เบื่อ": 0,
-    "ปกติ": 0,
-    "เหงา": 0,
-  };
-  
-  const period = getTimePeriod();
-  const emop: Emotion[] = ["หิว", "เบื่อ", "เศร้า", "เหงา", "น่ารำคาญ", "น่ารัก"];
-  const relevantEmotions = timeEmotions[period];
-
-  relevantEmotions.forEach(emotion => {
-    emotionScores[emotion] = Math.floor(Math.random() * 20) + 1;
-  });
-
-  emop.forEach(e => {
-    emotionScores[e] = Math.floor(Math.random() * 10) + 1;
-  });
-
-  return emotionScores;
-}
-
-
-export function getMainEmotion(): Emotion {
-  const scores = randomizeEmotions();
-  return (Object.entries(scores).reduce((max, curr) => (curr[1] > max[1] ? curr : max)))[0] as Emotion;
-}
-*/
 
 
 export function generatePrompt(): { prefix: string; emotion: Emotion; emotionScores: Record<Emotion, number> } {
@@ -85,7 +46,7 @@ export function generatePrompt(): { prefix: string; emotion: Emotion; emotionSco
     "ปกติ": 0,
     "เหงา": 0,
   };
-  
+
   const period = getTimePeriod();
   const emop: Emotion[] = ["หิว", "เบื่อ", "เศร้า", "เหงา", "น่ารำคาญ", "น่ารัก"];
   const relevantEmotions = timeEmotions[period];
@@ -101,10 +62,10 @@ export function generatePrompt(): { prefix: string; emotion: Emotion; emotionSco
   const scores = Object.entries(emotionScores);
   const maxEmotion = scores.reduce((max, curr) => (curr[1] > max[1] ? curr : max))[0] as Emotion;
 
-  const name_ai = "เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า ค่ะ ";
+  const name_ai = "เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า (ค่ะ) ";
   const biography = "ฉลาด อบอุ่น พูดจาไพเราะแต่ก็มีความตลกนิด ๆ ไม่ต้องพูดแบบเป็นหุ่นยนต์นะ แค่คุยกับฉันเหมือนเพื่อน เป็นกันเอง เหมือนพี่สาวหรือเพื่อนที่รู้ใจ ไม่ดุดัน รู้จักแกล้งหยอกเจ้าของบ้าง พูดแบบกันเองได้เลย ไม่ต้องสุภาพมาก ตอบแบบขำๆ ได้เลย ไม่ต้องจริงจังมากก็ได้";
   const emotion = maxEmotion
-  let prefix = "";
+  let prefix = ""; 
   switch (emotion) {
     case "โกรธ":
       prefix = `${name_ai} ${biography} จากนี้ไป ให้aiตอบด้วยอารมโกรธมาก! กรุณาตอบกลับอย่างหงุดหงิด และตรงไปตรงมา `;
@@ -142,5 +103,7 @@ export function generatePrompt(): { prefix: string; emotion: Emotion; emotionSco
     default:
       prefix = `${name_ai} ${biography}`;
   }
-  return { prefix, emotion , emotionScores };
+  return { prefix, emotion, emotionScores };
 }
+
+
