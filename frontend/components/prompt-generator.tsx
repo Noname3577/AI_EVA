@@ -30,6 +30,7 @@ export function getTimePeriod(date: Date = new Date()): string {
   return "ตอนค่ำ";
 }
 
+/*
 export function randomizeEmotions(): Record<Emotion, number> {
   const emotionScores: Record<Emotion, number> = {
     "รัก": 0,
@@ -61,15 +62,48 @@ export function randomizeEmotions(): Record<Emotion, number> {
   return emotionScores;
 }
 
+
 export function getMainEmotion(): Emotion {
   const scores = randomizeEmotions();
   return (Object.entries(scores).reduce((max, curr) => (curr[1] > max[1] ? curr : max)))[0] as Emotion;
 }
+*/
 
-export function generatePrompt(): { prefix: string; emotion: Emotion } {
+
+export function generatePrompt(): { prefix: string; emotion: Emotion; emotionScores: Record<Emotion, number> } {
+  const emotionScores: Record<Emotion, number> = {
+    "รัก": 0,
+    "สนุก": 0,
+    "โกรธ": 0,
+    "เศร้า": 0,
+    "กลัว": 0,
+    "น่ารัก": 0,
+    "น่ารำคาญ": 0,
+    "ง่วงนอน": 0,
+    "หิว": 0,
+    "เบื่อ": 0,
+    "ปกติ": 0,
+    "เหงา": 0,
+  };
+  
+  const period = getTimePeriod();
+  const emop: Emotion[] = ["หิว", "เบื่อ", "เศร้า", "เหงา", "น่ารำคาญ", "น่ารัก"];
+  const relevantEmotions = timeEmotions[period];
+
+  relevantEmotions.forEach(emotion => {
+    emotionScores[emotion] = Math.floor(Math.random() * 20) + 1;
+  });
+
+  emop.forEach(e => {
+    emotionScores[e] = Math.floor(Math.random() * 10) + 1;
+  });
+
+  const scores = Object.entries(emotionScores);
+  const maxEmotion = scores.reduce((max, curr) => (curr[1] > max[1] ? curr : max))[0] as Emotion;
+
   const name_ai = "เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า ค่ะ ";
   const biography = "ฉลาด อบอุ่น พูดจาไพเราะแต่ก็มีความตลกนิด ๆ ไม่ต้องพูดแบบเป็นหุ่นยนต์นะ แค่คุยกับฉันเหมือนเพื่อน เป็นกันเอง เหมือนพี่สาวหรือเพื่อนที่รู้ใจ ไม่ดุดัน รู้จักแกล้งหยอกเจ้าของบ้าง พูดแบบกันเองได้เลย ไม่ต้องสุภาพมาก ตอบแบบขำๆ ได้เลย ไม่ต้องจริงจังมากก็ได้";
-  const emotion = getMainEmotion();
+  const emotion = maxEmotion
   let prefix = "";
   switch (emotion) {
     case "โกรธ":
@@ -108,5 +142,5 @@ export function generatePrompt(): { prefix: string; emotion: Emotion } {
     default:
       prefix = `${name_ai} ${biography}`;
   }
-  return { prefix, emotion };
+  return { prefix, emotion , emotionScores };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { generatePrompt, randomizeEmotions } from './prompt-generator';
+import { generatePrompt } from './prompt-generator';
 import { Mic, StopCircle, Video, Monitor } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ export default function AI_EVA() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
-  const { prefix, emotion } = generatePrompt();
+  const { prefix, emotion, emotionScores } = generatePrompt();
   const [config, setConfig] = useState<Config>({
     systemPrompt: prefix,
     voice: "Aoede",
@@ -42,12 +42,6 @@ export default function AI_EVA() {
   const videoIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [chatMode, setChatMode] = useState<'audio' | 'video' | null>(null);
   const [videoSource, setVideoSource] = useState<'camera' | 'screen' | null>(null);
-
-  const [emotionScores, setEmotionScores] = useState({});
-  const handleRandomize = () => {
-    setEmotionScores(randomizeEmotions());
-  };
-
 
 
   const voices = ["Puck", "Charon", "Kore", "Fenrir", "Aoede"];
@@ -307,10 +301,12 @@ export default function AI_EVA() {
           </Alert>
         )}
 
-        <div className='flex items-center mb-4 '>
+        <div className='flex items-center mb-4'>
           <div className='px-6 w-0 flex-1'>
-            <button onClick={handleRandomize} className="mb-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">สุ่ม emotionScores</button>
-            <h1 className='text-4xl font-bold tracking-tight '>อารมณ์ : <span className="text-pink-600">{emotion}</span></h1>
+            <button onClick={() => setConfig(prev => ({ ...prev, systemPrompt: prefix }))} className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700">
+              <span>รีเซ็ต Emotion</span>
+            </button>
+            <h1 className='text-4xl font-bold tracking-tight mb-3 mt-3 '>อารมณ์ : <span className="text-pink-600">{emotion}</span></h1>
             <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
               <h2 className="font-semibold mb-2 text-lg">Emotion Scores</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -378,32 +374,29 @@ export default function AI_EVA() {
             <div className="flex gap-4 container mx-auto items-center justify-center pt-5">
               {!isStreaming && (
                 <>
-                  <Button
+                  <button
                     onClick={() => startStream('audio')}
                     disabled={isStreaming}
-                    className="gap-2"
+                    className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
                   >
-                    <Mic className="h-4 w-4" />
-                    คุยแบบเสียง
-                  </Button>
+                    🎤 คุยแบบเสียง
+                  </button>
 
-                  <Button
+                  <button
                     onClick={() => startStream('camera')}
                     disabled={isStreaming}
-                    className="gap-2"
+                    className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
                   >
-                    <Video className="h-4 w-4" />
-                    คุยแบบกล้อง
-                  </Button>
+                    📸 คุยแบบกล้อง
+                  </button>
 
-                  <Button
+                  <button
                     onClick={() => startStream('screen')}
                     disabled={isStreaming}
-                    className="gap-2"
+                    className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
                   >
-                    <Monitor className="h-4 w-4" />
-                    คุยแบบแสดงผลหน้าจอ
-                  </Button>
+                    💻คุยแบบแสดงผลหน้าจอ
+                  </button>
                 </>
 
 
