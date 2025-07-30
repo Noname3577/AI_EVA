@@ -48,15 +48,10 @@ export function generatePrompt(): { prefix: string; emotion: Emotion; emotionSco
   };
 
   const period = getTimePeriod();
-  const emop: Emotion[] = ["หิว", "เบื่อ", "เศร้า", "เหงา", "น่ารำคาญ", "น่ารัก"];
   const relevantEmotions = timeEmotions[period];
 
   relevantEmotions.forEach(emotion => {
     emotionScores[emotion] = Math.floor(Math.random() * 20) + 1;
-  });
-
-  emop.forEach(e => {
-    emotionScores[e] = Math.floor(Math.random() * 10) + 1;
   });
 
   const scores = Object.entries(emotionScores);
