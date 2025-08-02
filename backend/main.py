@@ -38,6 +38,7 @@ class GeminiConnection:
         
         if not self.config:
             raise ValueError("Configuration must be set before connecting")
+            
 
         # Send initial setup message with configuration
         setup_message = {

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { generatePrompt } from './prompt-generator';
 import { Mic, StopCircle, Video, Monitor } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,9 +22,10 @@ export default function AI_EVA() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
-  const { prefix, emotion, emotionScores } = generatePrompt();
+  const name_ai = "เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า (ค่ะ) ";
+  const biography = "ฉลาด อบอุ่น พูดจาไพเราะแต่ก็มีความตลกนิด ๆ ไม่ต้องพูดแบบเป็นหุ่นยนต์นะ แค่คุยกับฉันเหมือนเพื่อน เป็นกันเอง เหมือนพี่สาวหรือเพื่อนที่รู้ใจ ไม่ดุดัน รู้จักแกล้งหยอกเจ้าของบ้าง พูดแบบกันเองได้เลย ไม่ต้องสุภาพมาก ตอบแบบขำๆ ได้เลย ไม่ต้องจริงจังมากก็ได้";
   const [config, setConfig] = useState<Config>({
-    systemPrompt: prefix,
+    systemPrompt: `${name_ai} ${biography} จากนี้ไป ให้aiตอบด้วยอารมโกรธมาก! กรุณาตอบกลับอย่างหงุดหงิด และตรงไปตรงมา `,
     voice: "Aoede",
     googleSearch: true,
     allowInterruptions: false
@@ -303,8 +303,6 @@ export default function AI_EVA() {
         )}
 
         <div className='flex-col items-center mb-4 justify-center'>
-          <h1 className='text-4xl font-bold tracking-tight mb-3 mt-3 '>อารมณ์ : <span className="text-pink-600">{emotion}</span></h1>
-          <div>
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
