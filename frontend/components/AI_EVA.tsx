@@ -22,10 +22,8 @@ export default function AI_EVA() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
-  const name_ai = "เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า (ค่ะ) ";
-  const biography = "ฉลาด อบอุ่น พูดจาไพเราะแต่ก็มีความตลกนิด ๆ ไม่ต้องพูดแบบเป็นหุ่นยนต์นะ แค่คุยกับฉันเหมือนเพื่อน เป็นกันเอง เหมือนพี่สาวหรือเพื่อนที่รู้ใจ ไม่ดุดัน รู้จักแกล้งหยอกเจ้าของบ้าง พูดแบบกันเองได้เลย ไม่ต้องสุภาพมาก ตอบแบบขำๆ ได้เลย ไม่ต้องจริงจังมากก็ได้";
   const [config, setConfig] = useState<Config>({
-    systemPrompt: `${name_ai} ${biography} จากนี้ไป ให้aiตอบด้วยอารมโกรธมาก! กรุณาตอบกลับอย่างหงุดหงิด และตรงไปตรงมา `,
+    systemPrompt: 'เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า (ค่ะ) ฉลาด อบอุ่น พูดจาไพเราะแต่ก็มีความตลกนิด ๆ ไม่ต้องพูดแบบเป็นหุ่นยนต์นะ แค่คุยกับฉันเหมือนเพื่อน เป็นกันเอง เหมือนพี่สาวหรือเพื่อนที่รู้ใจ ไม่ดุดัน รู้จักแกล้งหยอกเจ้าของบ้าง พูดแบบกันเองได้เลย ไม่ต้องสุภาพมาก ตอบแบบขำๆ ได้เลย ไม่ต้องจริงจังมากก็ได้ จากนี้ไป ให้aiตอบด้วยอารมโกรธมาก! กรุณาตอบกลับอย่างหงุดหงิด และตรงไปตรงมา  ',
     voice: "Aoede",
     googleSearch: true,
     allowInterruptions: false
@@ -42,7 +40,7 @@ export default function AI_EVA() {
   const videoIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [chatMode, setChatMode] = useState<'audio' | 'video' | null>(null);
   const [videoSource, setVideoSource] = useState<'camera' | 'screen' | null>(null);
-
+  const [textInput, setTextInput] = useState("");
 
   const voices = ["Puck", "Charon", "Kore", "Fenrir", "Aoede"];
   let audioBuffer = []
@@ -93,6 +91,16 @@ export default function AI_EVA() {
     wsRef.current.onclose = () => {
       setIsStreaming(false);
     };
+  };
+
+  const sendTextMessage = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && textInput.trim() !== "") {
+      wsRef.current.send(JSON.stringify({
+        type: "text",
+        data: textInput.trim()
+      }));
+      setTextInput(""); // เคลียร์ข้อความหลังส่ง
+    }
   };
 
   // Initialize audio context and stream
@@ -282,6 +290,7 @@ export default function AI_EVA() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      stopVideo();
       stopStream();
 
     };
@@ -292,8 +301,6 @@ export default function AI_EVA() {
     <div className="container mx-auto py-8 px-4 ">
       <div className="space-y-6">
         <h1 className="text-center text-4xl font-bold tracking-tight ">😼 Ai Eva </h1>
-        
-
 
         {error && (
           <Alert variant="destructive">
@@ -303,148 +310,163 @@ export default function AI_EVA() {
         )}
 
         <div className='flex-col items-center mb-4 justify-center'>
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="system-prompt">ตั้งค่า Prompt</Label>
-                  <Textarea
-                    id="system-prompt"
-                    value={prefix}
-                    onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
-                    disabled
-                    className="min-h-[100px]"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="voice-select">เลือกเสียง</Label>
-                  <Select
-                    value={config.voice}
-                    onValueChange={(value) => setConfig(prev => ({ ...prev, voice: value }))}
-                    disabled
-                  >
-                    <SelectTrigger id="voice-select">
-                      <SelectValue placeholder="Select a voice" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {voices.map((voice) => (
-                        <SelectItem key={voice} value={voice}>
-                          {voice}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="google-search"
-                    checked={config.googleSearch}
-                    onCheckedChange={(checked) =>
-                      setConfig(prev => ({ ...prev, googleSearch: checked as boolean }))}
-                    disabled={isConnected}
-                  />
-                  <Label htmlFor="google-search">เปิดใช้งาน Google Search</Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex gap-4 container mx-auto items-center justify-center pt-5">
-              {!isStreaming && (
-                <>
-                  <button
-                    onClick={() => startStream('audio')}
-                    disabled={isStreaming}
-                    className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
-                  >
-                    🎤 คุยแบบเสียง
-                  </button>
-
-                  <button
-                    onClick={() => startStream('camera')}
-                    disabled={isStreaming}
-                    className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
-                  >
-                    📸 คุยแบบกล้อง
-                  </button>
-
-                  <button
-                    onClick={() => startStream('screen')}
-                    disabled={isStreaming}
-                    className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
-                  >
-                    💻คุยแบบแสดงผลหน้าจอ
-                  </button>
-                </>
-
-
-
-              )}
-            </div>
-
-            {isStreaming && (
-              <Button
-                onClick={stopStream}
-                variant="destructive"
-                className="gap-2"
-              >
-                <StopCircle className="h-4 w-4" />
-                หยุดการสนทนา
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {isStreaming && (
-          <Card>
-            <CardContent className="flex items-center justify-center h-24 mt-6">
-              <div className="flex flex-col items-center gap-2">
-                <Mic className="h-8 w-8 text-blue-500 animate-pulse" />
-                <p className="text-gray-600">กำลังฟัง...</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {(chatMode === 'video') && (
           <Card>
             <CardContent className="pt-6 space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold">นำเข้าวิดีโอ</h2>
+              <div className="space-y-2">
+                <Label htmlFor="system-prompt">ตั้งค่า Prompt</Label>
+                <Textarea
+                  id="system-prompt"
+                  value={config.systemPrompt}
+                  onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                  disabled={isConnected}
+                  className="min-h-[100px]"
+                />
               </div>
 
-              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  width={320}
-                  height={240}
-                  className="w-full h-full object-contain"
-                  //style={{ transform: 'scaleX(-1)' }}
-                  style={{ transform: videoSource === 'camera' ? 'scaleX(-1)' : 'none' }}
+              <div className="space-y-2">
+                <Label htmlFor="voice-select">เลือกเสียง</Label>
+                <Select
+                  value={config.voice}
+                  onValueChange={(value) => setConfig(prev => ({ ...prev, voice: value }))}
+                  disabled
+                >
+                  <SelectTrigger id="voice-select">
+                    <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {voices.map((voice) => (
+                      <SelectItem key={voice} value={voice}>
+                        {voice}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="google-search"
+                  checked={config.googleSearch}
+                  onCheckedChange={(checked) =>
+                    setConfig(prev => ({ ...prev, googleSearch: checked as boolean }))}
+                  disabled={isConnected}
                 />
-                <canvas
-                  ref={canvasRef}
-                  className="hidden"
-                  width={640}
-                  height={480}
-                />
+                <Label htmlFor="google-search">เปิดใช้งาน Google Search</Label>
               </div>
             </CardContent>
           </Card>
-        )}
 
-        {text && (
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="text-lg font-semibold mb-2">การสนทนา:</h2>
-              <pre className="whitespace-pre-wrap text-gray-700">{text}</pre>
-            </CardContent>
-          </Card>
-        )}
+          <div className="flex gap-4 container mx-auto items-center justify-center pt-5">
+            {!isStreaming && (
+              <>
+                <button
+                  onClick={() => startStream('audio')}
+                  disabled={isStreaming}
+                  className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
+                >
+                  🎤 คุยแบบเสียง
+                </button>
+
+                <button
+                  onClick={() => startStream('camera')}
+                  disabled={isStreaming}
+                  className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
+                >
+                  📸 คุยแบบกล้อง
+                </button>
+
+                <button
+                  onClick={() => startStream('screen')}
+                  disabled={isStreaming}
+                  className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
+                >
+                  💻คุยแบบแสดงผลหน้าจอ
+                </button>
+              </>
+            )}
+          </div>
+
+          {isStreaming && (
+            <div className="flex items-center gap-2 mt-4 mb-4">
+              <input
+                type="text"
+                placeholder="พิมพ์ข้อความพูดกับ Gemini"
+                className="flex-1 border border-gray-300 rounded px-3 py-2"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+              />
+              <Button
+                onClick={sendTextMessage}
+                className="bg-blue-500 text-white"
+              >
+                ส่งข้อความ
+              </Button>
+            </div>
+          )}
+
+
+          {isStreaming && (
+            <Button
+              onClick={stopStream}
+              variant="destructive"
+              className="gap-2"
+            >
+              <StopCircle className="h-4 w-4" />
+              หยุดการสนทนา
+            </Button>
+          )}
+        </div>
       </div>
-    </div >
+
+      {isStreaming && (
+        <Card>
+          <CardContent className="flex items-center justify-center h-24 mt-6">
+            <div className="flex flex-col items-center gap-2">
+              <Mic className="h-8 w-8 text-blue-500 animate-pulse" />
+              <p className="text-gray-600">กำลังฟัง...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(chatMode === 'video') && (
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold">นำเข้าวิดีโอ</h2>
+            </div>
+
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                width={320}
+                height={240}
+                className="w-full h-full object-contain"
+                //style={{ transform: 'scaleX(-1)' }}
+                style={{ transform: videoSource === 'camera' ? 'scaleX(-1)' : 'none' }}
+              />
+              <canvas
+                ref={canvasRef}
+                className="hidden"
+                width={640}
+                height={480}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {text && (
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold mb-2">การสนทนา:</h2>
+            <pre className="whitespace-pre-wrap text-gray-700">{text}</pre>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

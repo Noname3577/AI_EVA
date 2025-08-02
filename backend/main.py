@@ -37,8 +37,7 @@ class GeminiConnection:
         self.ws = await connect(self.uri, additional_headers={"Content-Type": "application/json"})
         
         if not self.config:
-            raise ValueError("Configuration must be set before connecting")
-            
+            raise ValueError("Configuration must be set before connecting")       
 
         # Send initial setup message with configuration
         setup_message = {
