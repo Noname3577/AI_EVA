@@ -41,6 +41,7 @@ export default function AI_EVA() {
   const [chatMode, setChatMode] = useState<'audio' | 'video' | null>(null);
   const [videoSource, setVideoSource] = useState<'camera' | 'screen' | null>(null);
   const [textInput, setTextInput] = useState("");
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const voices = ["Puck", "Charon", "Kore", "Fenrir", "Aoede"];
   let audioBuffer = []
@@ -102,6 +103,36 @@ export default function AI_EVA() {
       setTextInput(""); // เคลียร์ข้อความหลังส่ง
     }
   };
+
+  const startIdleTimer = () => {
+    clearIdleTimer();
+    idleTimerRef.current = setTimeout(() => {
+      sendIdlePrompt();
+    }, 5000); // 10 วินาที
+  };
+
+  const clearIdleTimer = () => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  };
+
+  const sendIdlePrompt = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const prompts = [
+        "เงียบ..."
+      ];
+      const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+
+      wsRef.current.send(JSON.stringify({
+        type: "text",
+        data: randomPrompt
+      }));
+    }
+  };
+
+
 
   // Initialize audio context and stream
   const startAudioStream = async () => {
@@ -205,6 +236,7 @@ export default function AI_EVA() {
     source.connect(audioContextRef.current.destination);
     source.onended = () => {
       playNextInQueue()
+      startIdleTimer(); // รีเซ็ตตัวจับเวลาเมื่อพูดจบ
     }
     source.start();
   };
