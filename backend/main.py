@@ -6,6 +6,10 @@ import os
 from dotenv import load_dotenv
 from websockets import connect
 from typing import Dict
+import pytchat
+import threading
+import queue
+from datetime import datetime
 
 load_dotenv()
 
@@ -19,6 +23,92 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class YouTubeChatMonitor:
+    def __init__(self):
+        self.chat = None
+        self.is_running = False
+        self.message_queue = queue.Queue()
+        self.chat_thread = None
+        self.websocket = None
+        
+    def set_websocket(self, websocket):
+        """Set the WebSocket connection for sending messages"""
+        self.websocket = websocket
+        
+    def start_monitoring(self, video_id):
+        """เริ่มติดตาม YouTube Live Chat"""
+        try:
+            self.chat = pytchat.create(video_id=video_id)
+            self.is_running = True
+            
+            # เริ่ม thread สำหรับติดตามแชท
+            self.chat_thread = threading.Thread(target=self._monitor_chat)
+            self.chat_thread.daemon = True
+            self.chat_thread.start()
+            
+            return {"success": True, "message": "YouTube chat monitoring started"}
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def _monitor_chat(self):
+        """ติดตามแชทในแบบ background"""
+        while self.is_running and self.chat.is_alive():
+            try:
+                for c in self.chat.get().sync_items():
+                    if not self.is_running:
+                        break
+                        
+                    message_data = {
+                        "id": c.id,
+                        "author": c.author.name,
+                        "message": c.message,
+                        "timestamp": c.datetime,
+                        "author_channel_id": c.author.channelId,
+                        "is_verified": getattr(c.author, 'isVerified', False),
+                        "is_chat_owner": getattr(c.author, 'isChatOwner', False),
+                        "is_chat_moderator": getattr(c.author, 'isChatModerator', False)
+                    }
+                    
+                    # ใส่ข้อความลงใน queue
+                    self.message_queue.put(message_data)
+                    
+                    # ส่งข้อความไปยัง WebSocket ถ้ามี
+                    if self.websocket:
+                        asyncio.create_task(self._send_to_websocket(message_data))
+                    
+            except Exception as e:
+                print(f"YouTube chat error: {e}")
+                asyncio.sleep(1)
+    
+    async def _send_to_websocket(self, message_data):
+        """ส่งข้อความ YouTube chat ไปยัง WebSocket"""
+        try:
+            if self.websocket and self.websocket.client_state.value != 3:
+                await self.websocket.send_json({
+                    "type": "youtube_chat",
+                    "data": message_data
+                })
+        except Exception as e:
+            print(f"Error sending YouTube chat to WebSocket: {e}")
+    
+    def get_messages(self):
+        """ดึงข้อความที่รอการประมวลผล"""
+        messages = []
+        while not self.message_queue.empty():
+            try:
+                messages.append(self.message_queue.get_nowait())
+            except queue.Empty:
+                break
+        return messages
+    
+    def stop_monitoring(self):
+        """หยุดการติดตาม"""
+        self.is_running = False
+        if self.chat:
+            self.chat.terminate()
+        return {"success": True, "message": "YouTube chat monitoring stopped"}
 
 class GeminiConnection:
     def __init__(self):
@@ -124,8 +214,9 @@ class GeminiConnection:
         }
         await self.ws.send(json.dumps(text_message))
 
-# Store active connections
+# Store active connections and YouTube monitors
 connections: Dict[str, GeminiConnection] = {}
+youtube_monitors: Dict[str, YouTubeChatMonitor] = {}
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
@@ -135,6 +226,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         # Create new Gemini connection for this client
         gemini = GeminiConnection()
         connections[client_id] = gemini
+        
+        # Create YouTube chat monitor for this client
+        youtube_monitor = YouTubeChatMonitor()
+        youtube_monitor.set_websocket(websocket)
+        youtube_monitors[client_id] = youtube_monitor
         
         # Wait for initial configuration
         config_data = await websocket.receive_json()
@@ -166,12 +262,29 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                             
                         message_content = json.loads(message["text"])
                         msg_type = message_content["type"]
+                        
                         if msg_type == "audio":
                             await gemini.send_audio(message_content["data"])    
                         elif msg_type == "image":
                             await gemini.send_image(message_content["data"])
                         elif msg_type == "text":
                             await gemini.send_text(message_content["data"])
+                        elif msg_type == "youtube_start":
+                            # เริ่มติดตาม YouTube Live Chat
+                            video_id = message_content.get("video_id")
+                            if video_id:
+                                result = youtube_monitor.start_monitoring(video_id)
+                                await websocket.send_json({
+                                    "type": "youtube_status",
+                                    "data": result
+                                })
+                        elif msg_type == "youtube_stop":
+                            # หยุดติดตาม YouTube Live Chat
+                            result = youtube_monitor.stop_monitoring()
+                            await websocket.send_json({
+                                "type": "youtube_status",
+                                "data": result
+                            })
                         else:
                             print(f"Unknown message type: {msg_type}")
                     except json.JSONDecodeError as e:
@@ -218,7 +331,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                                 print(f"Received text: {p['text']}")
                                 await websocket.send_json({
                                     "type": "text",
-                                    "data": p["text"]
+                                    "text": p["text"]
                                 })
                     except KeyError:
                         pass
@@ -235,10 +348,33 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             except Exception as e:
                 print(f"Error receiving from Gemini: {e}")
 
-        # Run both receiving tasks concurrently
+        async def process_youtube_messages():
+            """ประมวลผลข้อความจาก YouTube Chat และส่งไปยัง Gemini"""
+            try:
+                while True:
+                    if websocket.client_state.value == 3:
+                        return
+                    
+                    # ตรวจสอบข้อความใหม่จาก YouTube Chat
+                    messages = youtube_monitor.get_messages()
+                    for msg in messages:
+                        if websocket.client_state.value == 3:
+                            return
+                        
+                        # ส่งข้อความไปยัง Gemini
+                        youtube_text = f"{msg['message']}"
+                        await gemini.send_text(youtube_text)
+                    
+                    await asyncio.sleep(1)  # ตรวจสอบทุก 1 วินาที
+                    
+            except Exception as e:
+                print(f"Error processing YouTube messages: {e}")
+
+        # Run all receiving tasks concurrently
         async with asyncio.TaskGroup() as tg:
             tg.create_task(receive_from_client())
             tg.create_task(receive_from_gemini())
+            tg.create_task(process_youtube_messages())
 
     except Exception as e:
         print(f"WebSocket error: {e}")
@@ -247,6 +383,10 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         if client_id in connections:
             await connections[client_id].close()
             del connections[client_id]
+        
+        if client_id in youtube_monitors:
+            youtube_monitors[client_id].stop_monitoring()
+            del youtube_monitors[client_id]
 
 if __name__ == "__main__":
     import uvicorn

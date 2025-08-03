@@ -1,333 +1,407 @@
-'use client';
+"use client"
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Mic, StopCircle, Video, Monitor } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { base64ToFloat32Array, float32ToPcm16 } from '@/lib/utils';
+import { useState, useRef, useEffect } from "react"
+import { Mic, StopCircle } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { base64ToFloat32Array, float32ToPcm16 } from "@/lib/utils"
 
 interface Config {
-  systemPrompt: string;
-  voice: string;
-  googleSearch: boolean;
-  allowInterruptions: boolean;
+  systemPrompt: string
+  voice: string
+  googleSearch: boolean
+  allowInterruptions: boolean
 }
 
 export default function AI_EVA() {
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState(null);
-  const [text, setText] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [error, setError] = useState(null)
+  const [text, setText] = useState("")
   const [config, setConfig] = useState<Config>({
-    systemPrompt: 'เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า (ค่ะ) ฉลาด อบอุ่น พูดจาไพเราะแต่ก็มีความตลกนิด ๆ ไม่ต้องพูดแบบเป็นหุ่นยนต์นะ แค่คุยกับฉันเหมือนเพื่อน เป็นกันเอง เหมือนพี่สาวหรือเพื่อนที่รู้ใจ ไม่ดุดัน รู้จักแกล้งหยอกเจ้าของบ้าง พูดแบบกันเองได้เลย ไม่ต้องสุภาพมาก ตอบแบบขำๆ ได้เลย ไม่ต้องจริงจังมากก็ได้ จากนี้ไป ให้aiตอบด้วยอารมโกรธมาก! กรุณาตอบกลับอย่างหงุดหงิด และตรงไปตรงมา  ',
+    systemPrompt:
+      "เรียกแทนฉันว่า เอวา อายุ: 20 ปี เพศ:หญิง ห้ามตอบคำว่า (ค่ะ) ฉลาด อบอุ่น พูดจาไพเราะแต่ก็มีความตลกนิด ๆ ไม่ต้องพูดแบบเป็นหุ่นยนต์นะ แค่คุยกับฉันเหมือนเพื่อน เป็นกันเอง เหมือนพี่สาวหรือเพื่อนที่รู้ใจ ไม่ดุดัน รู้จักแกล้งหยอกเจ้าของบ้าง พูดแบบกันเองได้เลย ไม่ต้องสุภาพมาก ตอบแบบขำๆ ได้เลย ไม่ต้องจริงจังมากก็ได้ จากนี้ไป ให้aiตอบด้วยอารมโกรธมาก! กรุณาตอบกลับอย่างหงุดหงิด และตรงไปตรงมา  ",
     voice: "Aoede",
     googleSearch: true,
-    allowInterruptions: false
-  });
-  const [isConnected, setIsConnected] = useState(false);
-  const wsRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const audioInputRef = useRef(null);
-  const clientId = useRef(crypto.randomUUID());
-  const [videoEnabled, setVideoEnabled] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoStreamRef = useRef<MediaStream | null>(null);
-  const videoIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [chatMode, setChatMode] = useState<'audio' | 'video' | null>(null);
-  const [videoSource, setVideoSource] = useState<'camera' | 'screen' | null>(null);
-  const [textInput, setTextInput] = useState("");
-  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+    allowInterruptions: false,
+  })
+  const [isConnected, setIsConnected] = useState(false)
+  const wsRef = useRef(null)
+  const audioContextRef = useRef(null)
+  const audioInputRef = useRef(null)
+  const clientId = useRef(crypto.randomUUID())
+  const [videoEnabled, setVideoEnabled] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const videoStreamRef = useRef<MediaStream | null>(null)
+  const videoIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [chatMode, setChatMode] = useState<"audio" | "video" | null>(null)
+  const [videoSource, setVideoSource] = useState<"camera" | "screen" | null>(null)
+  const [textInput, setTextInput] = useState("")
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const voices = ["Puck", "Charon", "Kore", "Fenrir", "Aoede"];
-  let audioBuffer = []
+  // YouTube Chat states
+  const [youtubeUrl, setYoutubeUrl] = useState("")
+  const [isYoutubeChatActive, setIsYoutubeChatActive] = useState(false)
+  const [youtubeChatMessages, setYoutubeChatMessages] = useState([])
+  const [chatStats, setChatStats] = useState({ totalMessages: 0, uniqueUsers: new Set() })
+
+  const voices = ["Puck", "Charon", "Kore", "Fenrir", "Aoede"]
+  const audioBuffer = []
   let isPlaying = false
 
-  const startStream = async (mode: 'audio' | 'camera' | 'screen') => {
+  const extractVideoId = (url: string): string | null => {
+    const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/)([^&\n?#]+)/
+    const match = url.match(regex)
+    return match ? match[1] : null
+  }
 
-    if (mode !== 'audio') {
-      setChatMode('video');
+  const startStream = async (mode: "audio" | "camera" | "screen") => {
+    if (mode !== "audio") {
+      setChatMode("video")
     } else {
-      setChatMode('audio');
+      setChatMode("audio")
     }
 
-    wsRef.current = new WebSocket(`ws://localhost:8000/ws/${clientId.current}`);
+    wsRef.current = new WebSocket(`ws://localhost:8000/ws/${clientId.current}`)
 
     wsRef.current.onopen = async () => {
-      wsRef.current.send(JSON.stringify({
-        type: 'config',
-        config: config
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: "config",
+          config: config,
+        }),
+      )
 
-      await startAudioStream();
+      await startAudioStream()
 
-      if (mode !== 'audio') {
-        setVideoEnabled(true);
+      if (mode !== "audio") {
+        setVideoEnabled(true)
         setVideoSource(mode)
       }
 
-      setIsStreaming(true);
-      setIsConnected(true);
-    };
+      setIsStreaming(true)
+      setIsConnected(true)
+    }
 
     wsRef.current.onmessage = async (event) => {
-      const response = JSON.parse(event.data);
-      if (response.type === 'audio') {
-        const audioData = base64ToFloat32Array(response.data);
-        playAudioData(audioData);
-      } else if (response.type === 'text') {
-        setText(prev => prev + response.text + '\n');
+      const response = JSON.parse(event.data)
+
+      if (response.type === "audio") {
+        const audioData = base64ToFloat32Array(response.data)
+        playAudioData(audioData)
+      } else if (response.type === "text") {
+        setText((prev) => prev + response.text + "\n")
+      } else if (response.type === "youtube_chat") {
+        // Handle YouTube chat messages
+        const chatMessage = response.data
+        setYoutubeChatMessages((prev) => [...prev.slice(-19), chatMessage])
+
+        // Update stats
+        setChatStats((prev) => {
+          const newUniqueUsers = new Set(prev.uniqueUsers)
+          newUniqueUsers.add(chatMessage.author)
+          return {
+            totalMessages: prev.totalMessages + 1,
+            uniqueUsers: newUniqueUsers,
+          }
+        })
+      } else if (response.type === "youtube_status") {
+        // Handle YouTube status updates
+        if (response.data.success) {
+          console.log(response.data.message)
+        } else {
+          setError(`YouTube Chat Error: ${response.data.error}`)
+        }
       }
-    };
+    }
 
     wsRef.current.onerror = (error) => {
-      setError('WebSocket error: ' + error.message);
-      setIsStreaming(false);
-    };
+      setError("WebSocket error: " + error.message)
+      setIsStreaming(false)
+    }
 
     wsRef.current.onclose = () => {
-      setIsStreaming(false);
-    };
-  };
+      setIsStreaming(false)
+      setIsYoutubeChatActive(false)
+    }
+  }
+
+  const startYoutubeChat = () => {
+    if (!youtubeUrl.trim() || !wsRef.current) return
+
+    const videoId = extractVideoId(youtubeUrl)
+    if (!videoId) {
+      setError("Invalid YouTube URL")
+      return
+    }
+
+    // Send YouTube start command to backend
+    wsRef.current.send(
+      JSON.stringify({
+        type: "youtube_start",
+        video_id: videoId,
+      }),
+    )
+
+    setIsYoutubeChatActive(true)
+    setChatStats({ totalMessages: 0, uniqueUsers: new Set() })
+    setError(null)
+  }
+
+  const stopYoutubeChat = () => {
+    if (!wsRef.current) return
+
+    // Send YouTube stop command to backend
+    wsRef.current.send(
+      JSON.stringify({
+        type: "youtube_stop",
+      }),
+    )
+
+    setIsYoutubeChatActive(false)
+    setYoutubeChatMessages([])
+    setChatStats({ totalMessages: 0, uniqueUsers: new Set() })
+  }
 
   const sendTextMessage = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && textInput.trim() !== "") {
-      wsRef.current.send(JSON.stringify({
-        type: "text",
-        data: textInput.trim()
-      }));
-      setTextInput(""); // เคลียร์ข้อความหลังส่ง
+      wsRef.current.send(
+        JSON.stringify({
+          type: "text",
+          data: textInput.trim(),
+        }),
+      )
+      setTextInput("") // เคลียร์ข้อความหลังส่ง
     }
-  };
+  }
 
   const startIdleTimer = () => {
-    clearIdleTimer();
+    clearIdleTimer()
     idleTimerRef.current = setTimeout(() => {
-      sendIdlePrompt();
-    }, 5000); // 10 วินาที
-  };
+      sendIdlePrompt()
+    }, 10000) // 10 วินาที
+  }
 
   const clearIdleTimer = () => {
     if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = null;
+      clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
     }
-  };
+  }
 
   const sendIdlePrompt = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const prompts = [
-        "เงียบ..."
-      ];
-      const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+      const prompts = ["เงียบ..."]
+      const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)]
 
-      wsRef.current.send(JSON.stringify({
-        type: "text",
-        data: randomPrompt
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: "text",
+          data: randomPrompt,
+        }),
+      )
     }
-  };
-
-
+  }
 
   // Initialize audio context and stream
   const startAudioStream = async () => {
     try {
       // Initialize audio context
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 16000 // Required by Gemini
-      });
+        sampleRate: 16000, // Required by Gemini
+      })
 
       // Get microphone stream
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
       // Create audio input node
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      const processor = audioContextRef.current.createScriptProcessor(512, 1, 1);
+      const source = audioContextRef.current.createMediaStreamSource(stream)
+      const processor = audioContextRef.current.createScriptProcessor(512, 1, 1)
 
       processor.onaudioprocess = (e) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-          const inputData = e.inputBuffer.getChannelData(0);
-          const pcmData = float32ToPcm16(inputData);
+          const inputData = e.inputBuffer.getChannelData(0)
+          const pcmData = float32ToPcm16(inputData)
           // Convert to base64 and send as binary
-          const base64Data = btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer)));
-          wsRef.current.send(JSON.stringify({
-            type: 'audio',
-            data: base64Data
-          }));
+          const base64Data = btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer)))
+          wsRef.current.send(
+            JSON.stringify({
+              type: "audio",
+              data: base64Data,
+            }),
+          )
         }
-      };
+      }
 
-      source.connect(processor);
-      processor.connect(audioContextRef.current.destination);
+      source.connect(processor)
+      processor.connect(audioContextRef.current.destination)
 
-      audioInputRef.current = { source, processor, stream };
-      setIsStreaming(true);
+      audioInputRef.current = { source, processor, stream }
+      setIsStreaming(true)
     } catch (err) {
-      setError('Failed to access microphone: ' + err.message);
+      setError("Failed to access microphone: " + err.message)
     }
-  };
+  }
 
   // Stop streaming
   const stopStream = () => {
     if (audioInputRef.current) {
-      const { source, processor, stream } = audioInputRef.current;
-      source.disconnect();
-      processor.disconnect();
-      stream.getTracks().forEach(track => track.stop());
-      audioInputRef.current = null;
+      const { source, processor, stream } = audioInputRef.current
+      source.disconnect()
+      processor.disconnect()
+      stream.getTracks().forEach((track) => track.stop())
+      audioInputRef.current = null
     }
 
-    if (chatMode === 'video') {
-      setVideoEnabled(false);
-      setVideoSource(null);
+    if (chatMode === "video") {
+      setVideoEnabled(false)
+      setVideoSource(null)
 
       if (videoStreamRef.current) {
-        videoStreamRef.current.getTracks().forEach(track => track.stop());
-        videoStreamRef.current = null;
+        videoStreamRef.current.getTracks().forEach((track) => track.stop())
+        videoStreamRef.current = null
       }
       if (videoIntervalRef.current) {
-        clearInterval(videoIntervalRef.current);
-        videoIntervalRef.current = null;
+        clearInterval(videoIntervalRef.current)
+        videoIntervalRef.current = null
       }
+    }
+
+    // Stop YouTube chat
+    if (isYoutubeChatActive) {
+      stopYoutubeChat()
     }
 
     // stop ongoing audio playback
     if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
+      audioContextRef.current.close()
+      audioContextRef.current = null
     }
 
     if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+      wsRef.current.close()
+      wsRef.current = null
     }
 
-    setIsStreaming(false);
-    setIsConnected(false);
-    setChatMode(null);
-  };
+    setIsStreaming(false)
+    setIsConnected(false)
+    setChatMode(null)
+  }
 
   const playAudioData = async (audioData) => {
     audioBuffer.push(audioData)
     if (!isPlaying) {
-      playNextInQueue(); // Start playback if not already playing
+      playNextInQueue() // Start playback if not already playing
     }
   }
 
   const playNextInQueue = async () => {
     if (!audioContextRef.current || audioBuffer.length == 0) {
-      isPlaying = false;
-      return;
+      isPlaying = false
+      return
     }
 
     isPlaying = true
     const audioData = audioBuffer.shift()
 
-    const buffer = audioContextRef.current.createBuffer(1, audioData.length, 24000);
-    buffer.copyToChannel(audioData, 0);
+    const buffer = audioContextRef.current.createBuffer(1, audioData.length, 24000)
+    buffer.copyToChannel(audioData, 0)
 
-    const source = audioContextRef.current.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioContextRef.current.destination);
+    const source = audioContextRef.current.createBufferSource()
+    source.buffer = buffer
+    source.connect(audioContextRef.current.destination)
     source.onended = () => {
       playNextInQueue()
-      startIdleTimer(); // รีเซ็ตตัวจับเวลาเมื่อพูดจบ
+      startIdleTimer() // รีเซ็ตตัวจับเวลาเมื่อพูดจบ
     }
-    source.start();
-  };
+    source.start()
+  }
 
   useEffect(() => {
     if (videoEnabled && videoRef.current) {
       const startVideo = async () => {
         try {
-          let stream;
-          if (videoSource === 'camera') {
+          let stream
+          if (videoSource === "camera") {
             stream = await navigator.mediaDevices.getUserMedia({
-              video: { width: { ideal: 320 }, height: { ideal: 240 } }
-            });
-          } else if (videoSource === 'screen') {
+              video: { width: { ideal: 320 }, height: { ideal: 240 } },
+            })
+          } else if (videoSource === "screen") {
             stream = await navigator.mediaDevices.getDisplayMedia({
-              video: { width: { ideal: 1920 }, height: { ideal: 1080 } }
-            });
+              video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+            })
           }
 
-          videoRef.current.srcObject = stream;
-          videoStreamRef.current = stream;
+          videoRef.current.srcObject = stream
+          videoStreamRef.current = stream
 
           // Start frame capture after video is playing
           videoIntervalRef.current = setInterval(() => {
-            captureAndSendFrame();
-          }, 1000);
-
+            captureAndSendFrame()
+          }, 1000)
         } catch (err) {
-          console.error('Video initialization error:', err);
-          setError('Failed to access camera/screen: ' + err.message);
+          console.error("Video initialization error:", err)
+          setError("Failed to access camera/screen: " + err.message)
 
-          if (videoSource === 'screen') {
+          if (videoSource === "screen") {
             // Reset chat mode and clean up any existing connections
-            setChatMode(null);
-            stopStream();
+            setChatMode(null)
+            stopStream()
           }
 
-          setVideoEnabled(false);
-          setVideoSource(null);
+          setVideoEnabled(false)
+          setVideoSource(null)
         }
-      };
+      }
 
-      startVideo();
+      startVideo()
 
       // Cleanup function
       return () => {
         if (videoStreamRef.current) {
-          videoStreamRef.current.getTracks().forEach(track => track.stop());
-          videoStreamRef.current = null;
+          videoStreamRef.current.getTracks().forEach((track) => track.stop())
+          videoStreamRef.current = null
         }
         if (videoIntervalRef.current) {
-          clearInterval(videoIntervalRef.current);
-          videoIntervalRef.current = null;
+          clearInterval(videoIntervalRef.current)
+          videoIntervalRef.current = null
         }
-      };
+      }
     }
-  }, [videoEnabled, videoSource]);
+  }, [videoEnabled, videoSource])
 
   // Frame capture function
   const captureAndSendFrame = () => {
-    if (!canvasRef.current || !videoRef.current || !wsRef.current) return;
+    if (!canvasRef.current || !videoRef.current || !wsRef.current) return
 
-    const context = canvasRef.current.getContext('2d');
-    if (!context) return;
+    const context = canvasRef.current.getContext("2d")
+    if (!context) return
 
-    canvasRef.current.width = videoRef.current.videoWidth;
-    canvasRef.current.height = videoRef.current.videoHeight;
+    canvasRef.current.width = videoRef.current.videoWidth
+    canvasRef.current.height = videoRef.current.videoHeight
 
-    context.drawImage(videoRef.current, 0, 0);
-    const base64Image = canvasRef.current.toDataURL('image/jpeg').split(',')[1];
+    context.drawImage(videoRef.current, 0, 0)
+    const base64Image = canvasRef.current.toDataURL("image/jpeg").split(",")[1]
 
-    wsRef.current.send(JSON.stringify({
-      type: 'image',
-      data: base64Image
-    }));
-  };
-
-  // Toggle video function
-  const toggleVideo = () => {
-    setVideoEnabled(!videoEnabled);
-  };
+    wsRef.current.send(
+      JSON.stringify({
+        type: "image",
+        data: base64Image,
+      }),
+    )
+  }
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopVideo();
-      stopStream();
-
-    };
-  }, []);
-
+      stopStream()
+    }
+  }, [])
 
   return (
     <div className="container mx-auto py-8 px-4 ">
@@ -341,7 +415,7 @@ export default function AI_EVA() {
           </Alert>
         )}
 
-        <div className='flex-col items-center mb-4 justify-center'>
+        <div className="flex-col items-center mb-4 justify-center">
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="space-y-2">
@@ -349,7 +423,7 @@ export default function AI_EVA() {
                 <Textarea
                   id="system-prompt"
                   value={config.systemPrompt}
-                  onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, systemPrompt: e.target.value }))}
                   disabled={isConnected}
                   className="min-h-[100px]"
                 />
@@ -359,7 +433,7 @@ export default function AI_EVA() {
                 <Label htmlFor="voice-select">เลือกเสียง</Label>
                 <Select
                   value={config.voice}
-                  onValueChange={(value) => setConfig(prev => ({ ...prev, voice: value }))}
+                  onValueChange={(value) => setConfig((prev) => ({ ...prev, voice: value }))}
                   disabled
                 >
                   <SelectTrigger id="voice-select">
@@ -379,11 +453,40 @@ export default function AI_EVA() {
                 <Checkbox
                   id="google-search"
                   checked={config.googleSearch}
-                  onCheckedChange={(checked) =>
-                    setConfig(prev => ({ ...prev, googleSearch: checked as boolean }))}
+                  onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, googleSearch: checked as boolean }))}
                   disabled={isConnected}
                 />
                 <Label htmlFor="google-search">เปิดใช้งาน Google Search</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="youtube-url">YouTube Live URL</Label>
+                <div className="flex gap-2">
+                  <input
+                    id="youtube-url"
+                    type="text"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    disabled={!isConnected}
+                    className="flex-1 border border-gray-300 rounded px-3 py-2"
+                  />
+                  <Button
+                    onClick={isYoutubeChatActive ? stopYoutubeChat : startYoutubeChat}
+                    disabled={!isConnected || !youtubeUrl.trim()}
+                    variant={isYoutubeChatActive ? "destructive" : "default"}
+                  >
+                    {isYoutubeChatActive ? "หยุดแชท" : "เริ่มแชท"}
+                  </Button>
+                </div>
+                {isYoutubeChatActive && (
+                  <div className="text-sm space-y-1">
+                    <p className="text-green-600">🔴 กำลังติดตาม YouTube Live Chat (Backend + pytchat)</p>
+                    <p className="text-gray-600">
+                      📊 ข้อความทั้งหมด: {chatStats.totalMessages} | ผู้ใช้: {chatStats.uniqueUsers.size} คน
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -392,7 +495,7 @@ export default function AI_EVA() {
             {!isStreaming && (
               <>
                 <button
-                  onClick={() => startStream('audio')}
+                  onClick={() => startStream("audio")}
                   disabled={isStreaming}
                   className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
                 >
@@ -400,7 +503,7 @@ export default function AI_EVA() {
                 </button>
 
                 <button
-                  onClick={() => startStream('camera')}
+                  onClick={() => startStream("camera")}
                   disabled={isStreaming}
                   className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
                 >
@@ -408,7 +511,7 @@ export default function AI_EVA() {
                 </button>
 
                 <button
-                  onClick={() => startStream('screen')}
+                  onClick={() => startStream("screen")}
                   disabled={isStreaming}
                   className="relative bottom-0 flex justify-center items-center gap-2 border border-[#000] rounded-xl text-[#FFF] font-black bg-[#000] uppercase px-8 py-4 z-10 overflow-hidden ease-in-out duration-700 group hover:text-[#000] hover:bg-[#FFF] active:scale-95 active:duration-0 focus:bg-[#FFF] focus:text-[#000] isolation-auto before:absolute before:w-full before:transition-all before:duration-700 before:hover:w-full before:-left-full before:hover:left-0 before:rounded-full before:bg-[#FFF] before:-z-10 before:aspect-square before:hover:scale-150 before:hover:duration-700"
                 >
@@ -427,22 +530,14 @@ export default function AI_EVA() {
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
               />
-              <Button
-                onClick={sendTextMessage}
-                className="bg-blue-500 text-white"
-              >
+              <Button onClick={sendTextMessage} className="bg-blue-500 text-white">
                 ส่งข้อความ
               </Button>
             </div>
           )}
 
-
           {isStreaming && (
-            <Button
-              onClick={stopStream}
-              variant="destructive"
-              className="gap-2"
-            >
+            <Button onClick={stopStream} variant="destructive" className="gap-2">
               <StopCircle className="h-4 w-4" />
               หยุดการสนทนา
             </Button>
@@ -461,7 +556,7 @@ export default function AI_EVA() {
         </Card>
       )}
 
-      {(chatMode === 'video') && (
+      {chatMode === "video" && (
         <Card>
           <CardContent className="pt-6 space-y-4">
             <div className="flex justify-between items-center">
@@ -477,15 +572,9 @@ export default function AI_EVA() {
                 width={320}
                 height={240}
                 className="w-full h-full object-contain"
-                //style={{ transform: 'scaleX(-1)' }}
-                style={{ transform: videoSource === 'camera' ? 'scaleX(-1)' : 'none' }}
+                style={{ transform: videoSource === "camera" ? "scaleX(-1)" : "none" }}
               />
-              <canvas
-                ref={canvasRef}
-                className="hidden"
-                width={640}
-                height={480}
-              />
+              <canvas ref={canvasRef} className="hidden" width={640} height={480} />
             </div>
           </CardContent>
         </Card>
@@ -499,6 +588,28 @@ export default function AI_EVA() {
           </CardContent>
         </Card>
       )}
+
+      {youtubeChatMessages.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold mb-2">YouTube Live Chat (Backend + pytchat):</h2>
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              {youtubeChatMessages.slice(-10).map((msg, index) => (
+                <div key={index} className="bg-gray-50 rounded p-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-blue-600">{msg.author}</span>
+                    {msg.is_chat_owner && <span className="text-xs bg-red-500 text-white px-1 rounded">OWNER</span>}
+                    {msg.is_chat_moderator && <span className="text-xs bg-green-500 text-white px-1 rounded">MOD</span>}
+                    {msg.is_verified && <span className="text-xs bg-blue-500 text-white px-1 rounded">✓</span>}
+                  </div>
+                  <p className="mt-1">{msg.message}</p>
+                  <p className="text-xs text-gray-500 mt-1">{new Date(msg.timestamp).toLocaleTimeString()}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
-  );
+  )
 }
